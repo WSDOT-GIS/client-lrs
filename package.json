@@ -1,0 +1,30 @@
+{
+  "name": "client-lrs",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "tsc",
+    "lint": "tslint --project .",
+    "test": "jasmine"
+  },
+  "keywords": [],
+  "author": "",
+  "private": true,
+  "license": "Unlicense",
+  "dependencies": {
+    "@turf/turf": "^5.0.4",
+    "@types/arcgis-rest-api": "^10.4.3",
+    "@types/arcgis-to-geojson-utils": "^1.0.2",
+    "@types/geojson": "^1.0.6",
+    "arcgis-to-geojson-utils": "^1.0.3",
+    "isomorphic-fetch": "^2.2.1"
+  },
+  "devDependencies": {
+    "@types/jasmine": "^2.8.2",
+    "@types/node": "^8.0.53",
+    "jasmine": "^2.8.0",
+    "tslint": "^5.8.0",
+    "typescript": "^2.6.1"
+  }
+}
