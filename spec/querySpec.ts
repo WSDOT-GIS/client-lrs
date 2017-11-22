@@ -43,4 +43,4 @@ it("should be able to retrieve all features", async (done) => {
     } catch (error) {
         done.fail(error);
     }
-});
+}, 30000);
