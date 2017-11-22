@@ -1,11 +1,45 @@
-import { pointOnFeature, pointToLineDistance } from "@turf/turf";
+import lineSliceAlong from "@turf/line-slice-along";
+import { along, pointToLineDistance } from "@turf/turf";
 import { Feature, FeatureSet, Polyline } from "arcgis-rest-api";
 import { arcgisToGeoJSON } from "arcgis-to-geojson-utils";
-import { Point } from "geojson";
+import { Feature as GeoJsonFeature, LineString, Point } from "geojson";
+import lineSegment from "@turf/line-segment";
 
 if (typeof fetch === "undefined") {
     // tslint:disable-next-line:no-var-requires
     require("isomorphic-fetch");
+}
+
+export interface IErrorResponseInfo {
+    code: number;
+    message: string;
+    details: string[];
+}
+
+export interface IErrorResponseJson {
+    error: IErrorResponseInfo;
+}
+
+export class QueryError extends Error implements IErrorResponseInfo {
+    // tslint:disable-next-line:variable-name
+    private _code: number;
+    // tslint:disable-next-line:variable-name
+    private _details: string[];
+
+    public get code(): number {
+        return this._code;
+    }
+    public get details(): string[] {
+        return this._details;
+    }
+
+    constructor(errorInfo: IErrorResponseInfo) {
+        super(errorInfo ? errorInfo.message : undefined);
+        if (errorInfo) {
+            this._code = errorInfo.code;
+            this._details = errorInfo.details;
+        }
+    }
 }
 
 function objectToSearch(searchParams: { [key: string]: any }) {
@@ -28,6 +62,10 @@ function objectToSearch(searchParams: { [key: string]: any }) {
     return parts.join("&");
 }
 
+/**
+ * Add "/query" to the end of the URL if not already present.
+ * @param url feature service layer URL
+ */
 function ensureQueryUrl(url: string) {
     // Add "/query" to the end of the URL if not already present.
     if (!/\/query\/?$/.test(url)) {
@@ -36,6 +74,26 @@ function ensureQueryUrl(url: string) {
     return url;
 }
 
+/**
+ * Checks the response from a query and throws an exception if
+ * the property "error" is present in the response object.
+ * @param obj Json parsed to object returned from a feature service layer query.
+ */
+function checkForError(obj: any) {
+    if (obj.hasOwnProperty("error")) {
+        throw new QueryError(obj.error);
+    }
+}
+
+/**
+ * Get all features from a feature service layer.
+ * @param url Feature service layer URL
+ * @param outSR Output spatial reference WKID
+ * @param outFields Output fields
+ * @param returnGeometry Return geometry?
+ * @param returnZ Return Z coordinates
+ * @param returnM Return M coordinates
+ */
 export async function getAllFeatures(
     url: string, outSR?: number, outFields: string | string[] = "*", returnGeometry: boolean = true,
     returnZ: boolean = false, returnM: boolean = false) {
@@ -53,19 +111,30 @@ export async function getAllFeatures(
 
     const response = await fetch(fullUrl);
     const featureSet = await response.json() as FeatureSet;
-
+    checkForError(featureSet);
     return featureSet;
 }
 
-export async function getFeatureByRouteId(url: string, routeId: string, outSR?: number,
-                                          routeIdField: string = "RouteID",
-                                          returnGeometry: boolean = true, returnZ: boolean = false,
-                                          returnM: boolean = false) {
+/**
+ * Find a specific route feature by it's route ID.
+ * @param url Feature service layer URL.
+ * @param routeId Route ID to search for.
+ * @param outSR Output spatial reference WKID
+ * @param routeIdField The field that contains unique route ID.
+ * @param returnZ Return Z coordinates?
+ * @param returnM Return M coordinates?
+ */
+export async function getFeatureByRouteId(
+    url: string, routeId: string, outSR?: number,
+    routeIdField: string = "RouteID",
+    returnZ: boolean = false,
+    returnM: boolean = false) {
     const where = `${routeIdField} = '${routeId}'`;
     const searchParams = {
         where,
         fields: routeIdField,
-        returnGeometry,
+        returnGeometry: true,
+        outFields: routeIdField,
         returnZ,
         returnM,
         outSR,
@@ -76,6 +145,7 @@ export async function getFeatureByRouteId(url: string, routeId: string, outSR?: 
 
     const response = await fetch(fullUrl);
     const featureSet = await response.json() as FeatureSet;
+    checkForError(featureSet);
     return featureSet.features[0];
 }
 
@@ -112,11 +182,21 @@ export async function getRoutesNearPoint(
 
     const fullUrl = `${url}?${objectToSearch(searchParams)}`;
 
-    const featureSet = await fetch(fullUrl).then((resp) => resp.json()) as FeatureSet;
-
+    const response = await fetch(fullUrl);
+    const featureSet = await response.json() as FeatureSet;
+    checkForError(featureSet);
     return featureSet;
 }
 
+/**
+ * Given the result feature set from the {@link getRoutesNearPoint} function,
+ * returns the feature with the shortest distance between the input point and
+ * the route feature.
+ * @param point
+ * @param routesNearPointFeatureSet
+ * @returns an array where the first element is the nearest {@link Feature} and
+ * the second is the distance.
+ */
 export function getNearestRouteFeature(point: number[], routesNearPointFeatureSet: FeatureSet): [Feature, number] {
     const geoJsonPoint: Point = {
         type: "Point",
@@ -140,4 +220,41 @@ export function getNearestRouteFeature(point: number[], routesNearPointFeatureSe
     }
 
     return [closestRouteFeature, shortestDistance];
+}
+
+/**
+ * Finds a point or a line segment along a route.
+ * @param url Feature Service Layer URL.
+ * @param routeId Route identifier
+ * @param beginMeasure Begin measure. (Only measure for points.)
+ * @param endMeasure End measure. (Line segments only.)
+ * @param outSR Output spatial reference
+ * @param routeIdField Specifies the route ID field
+ */
+export async function findRouteLocation(
+    url: string, routeId: string, beginMeasure: number, endMeasure?: number,
+    outSR?: number, routeIdField: string = "RouteID") {
+
+    const routeFeature = await getFeatureByRouteId(url, routeId, outSR, routeIdField);
+    const geometry = arcgisToGeoJSON(routeFeature.geometry) as GeoJSON.LineString | GeoJSON.MultiLineString;
+    let lineString: LineString;
+    if (geometry.type === "MultiLineString") {
+        if (geometry.coordinates.length === 1) {
+            lineString = {
+                type: "LineString",
+                coordinates: geometry.coordinates[0],
+            };
+        } else {
+            // TODO: iterate through each part of the linestring geometries using iterator.
+            throw new Error("Route is a MultiLineString");
+        }
+    } else {
+        lineString = geometry as LineString;
+    }
+
+    if (typeof endMeasure === "undefined") {
+        return along(lineString, beginMeasure, { units: "miles" });
+    } else {
+        return lineSliceAlong(lineString, beginMeasure, endMeasure, { units: "miles" });
+    }
 }
