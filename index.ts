@@ -1,9 +1,9 @@
-import lineSliceAlong from "@turf/line-slice-along";
-import { along, pointToLineDistance } from "@turf/turf";
+import { default as along } from "@turf/along";
+import { default as lineSliceAlong } from "@turf/line-slice-along";
+import { default as pointToLineDistance } from "@turf/point-to-line-distance";
 import { Feature, FeatureSet, Polyline } from "arcgis-rest-api";
 import { arcgisToGeoJSON } from "arcgis-to-geojson-utils";
-import { Feature as GeoJsonFeature, LineString, Point } from "geojson";
-import lineSegment from "@turf/line-segment";
+import { Feature as GeoJsonFeature, LineString, MultiLineString, Point } from "geojson";
 
 if (typeof fetch === "undefined") {
     // tslint:disable-next-line:no-var-requires
@@ -226,18 +226,19 @@ export function getNearestRouteFeature(point: number[], routesNearPointFeatureSe
  * Finds a point or a line segment along a route.
  * @param url Feature Service Layer URL.
  * @param routeId Route identifier
- * @param beginMeasure Begin measure. (Only measure for points.)
- * @param endMeasure End measure. (Line segments only.)
+ * @param measure Measure.
  * @param outSR Output spatial reference
  * @param routeIdField Specifies the route ID field
  */
-export async function findRouteLocation(
-    url: string, routeId: string, beginMeasure: number, endMeasure?: number,
+export async function findPointAlongRoute(
+    url: string, routeId: string, measure: number,
     outSR?: number, routeIdField: string = "RouteID") {
 
     const routeFeature = await getFeatureByRouteId(url, routeId, outSR, routeIdField);
     const geometry = arcgisToGeoJSON(routeFeature.geometry) as GeoJSON.LineString | GeoJSON.MultiLineString;
-    let lineString: LineString;
+    let lineString: LineString | undefined;
+    let multiLineString: MultiLineString | undefined;
+
     if (geometry.type === "MultiLineString") {
         if (geometry.coordinates.length === 1) {
             lineString = {
@@ -245,16 +246,82 @@ export async function findRouteLocation(
                 coordinates: geometry.coordinates[0],
             };
         } else {
-            // TODO: iterate through each part of the linestring geometries using iterator.
-            throw new Error("Route is a MultiLineString");
+            // // TODO: iterate through each part of the linestring geometries using iterator.
+            // throw new Error("Route is a MultiLineString");
+            multiLineString = {
+                type: "MultiLineString",
+                coordinates: geometry.coordinates,
+            };
         }
     } else {
         lineString = geometry as LineString;
     }
 
-    if (typeof endMeasure === "undefined") {
-        return along(lineString, beginMeasure, { units: "miles" });
-    } else {
-        return lineSliceAlong(lineString, beginMeasure, endMeasure, { units: "miles" });
+    if (lineString) {
+            return along(lineString, measure, { units: "miles" });
+    } else if (multiLineString) {
+        for (const lsCoords of multiLineString.coordinates) {
+            lineString = {
+                type: "LineString",
+                coordinates: lsCoords,
+            };
+            let pointFeature: GeoJsonFeature<Point, any>;
+            try {
+                pointFeature = along(lineString, measure, { units: "miles" });
+            } catch (err) {
+                throw err;
+            }
+            if (pointFeature) {
+                return pointFeature;
+            }
+        }
     }
+
+    throw TypeError("Unsupported geometry type");
+}
+
+/**
+ * Finds a point or a line segment along a route.
+ * @param url Feature Service Layer URL.
+ * @param routeId Route identifier
+ * @param beginMeasure Begin measure. (Only measure for points.)
+ * @param endMeasure End measure. (Line segments only.)
+ * @param outSR Output spatial reference
+ * @param routeIdField Specifies the route ID field
+ */
+export async function findRouteSegment(
+    url: string, routeId: string, beginMeasure: number, endMeasure: number,
+    outSR?: number, routeIdField: string = "RouteID") {
+
+    const routeFeature = await getFeatureByRouteId(url, routeId, outSR, routeIdField);
+    const geometry = arcgisToGeoJSON(routeFeature.geometry) as GeoJSON.LineString | GeoJSON.MultiLineString;
+    let lineString: LineString | undefined;
+    let multiLineString: MultiLineString | undefined;
+
+    if (geometry.type === "MultiLineString") {
+        if (geometry.coordinates.length === 1) {
+            lineString = {
+                type: "LineString",
+                coordinates: geometry.coordinates[0],
+            };
+        } else {
+            // // TODO: iterate through each part of the linestring geometries using iterator.
+            // throw new Error("Route is a MultiLineString");
+            multiLineString = {
+                type: "MultiLineString",
+                coordinates: geometry.coordinates,
+            };
+        }
+    } else {
+        lineString = geometry as LineString;
+    }
+
+    if (lineString) {
+        return lineSliceAlong(lineString, beginMeasure, endMeasure, { units: "miles" });
+    } else if (multiLineString) {
+        throw new TypeError("Unsupported: Route is not contiguous.");
+    } else {
+        throw TypeError("Unsupported geometry type");
+    }
+
 }
