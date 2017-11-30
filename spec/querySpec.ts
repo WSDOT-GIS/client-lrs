@@ -1,9 +1,6 @@
 import { Polyline } from "arcgis-rest-api";
-import {
-    findPointAlongRoute,
-    findRouteSegment, getAllFeatures, getFeatureByRouteId,
-    getNearestRouteFeature, getRoutesNearPoint,
-} from "../index";
+import { getRoutesNearPoint } from "../FeatureServiceLayer";
+import { findPointAlongRoute, findRouteSegment, getNearestRouteFeature } from "../index";
 
 const layerQueryUrl = "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StateRoutes/FeatureServer/0/query";
 
@@ -30,16 +27,6 @@ describe("ArcGIS REST API query + TurfJS tests", () => {
         }
     });
 
-    it("should be able get a route by ID", async (done) => {
-        try {
-            const routeFeature = await getFeatureByRouteId(layerQueryUrl, "009");
-            expect((routeFeature.geometry as Polyline).paths).toBeTruthy();
-            done();
-        } catch (error) {
-            done.fail(error);
-        }
-    });
-
     describe("linear referencing", () => {
 
         it("should be able to locate points and line segments along routes", async (done) => {
@@ -50,8 +37,11 @@ describe("ArcGIS REST API query + TurfJS tests", () => {
                 // console.log(JSON.stringify(feature));
                 expect(feature.type).toEqual("Feature");
                 const geometry = feature.geometry;
-                expect(geometry.type).toEqual("Point");
-                expect(geometry.coordinates.length).toEqual(2);
+                expect(geometry).not.toBeNull();
+                if (geometry) {
+                    expect(geometry.type).toEqual("Point");
+                    expect(geometry.coordinates.length).toEqual(2);
+                }
                 done();
             } catch (error) {
                 done.fail(error);
@@ -62,11 +52,14 @@ describe("ArcGIS REST API query + TurfJS tests", () => {
                 const feature = await findRouteSegment(layerQueryUrl, routeId, m, endM);
                 expect(feature.type).toEqual("Feature");
                 const geometry = feature.geometry;
-                expect(geometry.type).toEqual("LineString");
-                expect(Array.isArray(geometry.coordinates)).toEqual(true);
-                for (const pointCoords of geometry.coordinates) {
-                    for (const n of pointCoords) {
-                        expect(typeof n).toBe("number");
+                expect(geometry).not.toBeNull();
+                if (geometry) {
+                    expect(geometry.type).toEqual("LineString");
+                    expect(Array.isArray(geometry.coordinates)).toEqual(true);
+                    for (const pointCoords of geometry.coordinates) {
+                        for (const n of pointCoords) {
+                            expect(typeof n).toBe("number");
+                        }
                     }
                 }
                 done();
@@ -99,15 +92,4 @@ describe("ArcGIS REST API query + TurfJS tests", () => {
             // }
         });
     });
-
-    xit("should be able to retrieve all features", async (done) => {
-        try {
-            const featureSet = await getAllFeatures(layerQueryUrl);
-            expect(featureSet.geometryType === "esriGeometryPolyline");
-            expect(featureSet.features.length).toBeGreaterThan(0);
-            done();
-        } catch (error) {
-            done.fail(error);
-        }
-    }, 30000);
 });
