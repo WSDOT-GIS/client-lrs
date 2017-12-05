@@ -109,12 +109,34 @@ export async function getAllFeatures(
  * Represents a layer of an ArcGIS Server Feature Service.
  */
 export default class FeatureServiceLayer {
+
+    // tslint:disable-next-line:variable-name
+    private _url: string;
+    /**
+     * Gets the "url" property.
+     */
+    public get url(): string {
+        return this._url;
+    }
+    /**
+     * Sets the "url" property.
+     * @throws Error - Throws an error if the URL that is being assigned is not validly formatted.
+     */
+    public set url(v: string) {
+        const urlRe = /.+\/FeatureServer\/\d+/i;
+        const match = v.match(urlRe);
+        if (!match) {
+            throw Error(`Invalid Feature Service Layer URL: ${v}`);
+        }
+        this._url = match[0];
+    }
+
     /**
      * Creates a new instance of this class.
      * @param url URL to the feature service layer.
      */
-    constructor(public url: string) {
-
+    constructor(url: string) {
+        this.url = url;
     }
     /**
      * Queries a feature service to find routes within a given search tolerance of a point.

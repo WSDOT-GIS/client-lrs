@@ -1,7 +1,8 @@
 {
     "files.exclude": {
-        "**/*.{js,d.ts}": { "when": "$(basename).ts" },
-        "**/*.js.map": true,
+        "**/*.{js}": { "when": "$(basename).ts" },
+        "spec/**/*.{js,d.ts}": { "when": "$(basename).ts" },
+        "**/{FeatureServiceLayer,index,QueryError,utils}.{d.ts}": { "when": "$(basename).ts" },
         "**/.git": true,
         "**/.svn": true,
         "**/.hg": true,
