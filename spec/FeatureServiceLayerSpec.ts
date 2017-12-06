@@ -1,7 +1,8 @@
 import { Polyline } from "arcgis-rest-api";
 import FeatureServiceLayer from "../FeatureServiceLayer";
 
-const layerQueryUrl = "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StateRoutes/FeatureServer/0/";
+const featureServiceUrl = "https://data.wsdot.wa.gov/arcgis/rest/services/Shared/StateRoutes/FeatureServer/";
+const layerQueryUrl = `${featureServiceUrl}0`;
 
 describe("Feature Service Layer Query", () => {
 

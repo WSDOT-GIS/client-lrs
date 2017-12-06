@@ -1,6 +1,7 @@
 *.js
 *.js.map
 *.d.ts
+!FeatureServiceInterfaces.d.ts
 
 .vscode/*
 !.vscode/settings.json
