@@ -17,7 +17,7 @@
   "private": true,
   "license": "Unlicense",
   "dependencies": {
-    "@turf/turf": "^5.0.4",
+    "@turf/turf": "^5.1.6",
     "@types/arcgis-rest-api": "^10.4.3",
     "@types/arcgis-to-geojson-utils": "^1.0.2",
     "@types/geojson": "^7946.0.0",
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "@types/jasmine": "^2.8.2",
-    "@types/node": "^8.0.53",
+    "@types/node": "^8.5.2",
     "jasmine": "^2.8.0",
     "tslint": "^5.8.0",
     "typescript": "^2.6.2"
