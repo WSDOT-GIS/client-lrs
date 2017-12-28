@@ -1,4 +1,5 @@
 import { default as along } from "@turf/along";
+import { Feature as TurfFeature, LineString as TurfLineString, Units as TurfUnits} from "@turf/helpers";
 import { default as lineSliceAlong } from "@turf/line-slice-along";
 import { default as pointToLineDistance } from "@turf/point-to-line-distance";
 import { Feature, FeatureSet, Polyline } from "arcgis-rest-api";
