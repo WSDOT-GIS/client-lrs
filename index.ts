@@ -55,6 +55,8 @@ export function getNearestRouteFeature(point: number[], routesNearPointFeatureSe
  * @param measure Measure.
  * @param outSR Output spatial reference
  * @param routeIdField Specifies the route ID field
+ * @throws TypeError - Throws a TypeError if a geometry type other than
+ * "LineString" or "MultiLineString" is returned from the query for the route with the given ID.
  */
 export async function findPointAlongRoute(
     url: string, routeId: string, measure: number,
